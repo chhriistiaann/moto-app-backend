@@ -29,4 +29,5 @@ const RaceHighlights = db.define(
   }
 );
 
+
 export default RaceHighlights;

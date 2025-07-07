@@ -45,4 +45,5 @@ const Circuit = db.define(
   }
 );
 
+
 export default Circuit;

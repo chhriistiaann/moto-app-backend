@@ -42,4 +42,6 @@ const LicensedRiders = db.define(
   }
 );
 
+
+
 export default LicensedRiders;

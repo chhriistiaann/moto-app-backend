@@ -1,6 +1,7 @@
 import { DataTypes } from "sequelize";
 import db from "../../database/connection";
 import Flag from "./flag";
+import LicensedRiders from "./licensedRiders";
 
 const Rider = db.define(
   "rider",
@@ -52,5 +53,6 @@ const Rider = db.define(
     tableName: "rider",
   }
 );
+
 
 export default Rider;

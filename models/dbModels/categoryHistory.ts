@@ -42,4 +42,6 @@ const CategoryHistory = db.define(
   }
 );
 
+
+
 export default CategoryHistory;

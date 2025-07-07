@@ -2,6 +2,8 @@ import { DataTypes } from "sequelize";
 import db from "../../database/connection";
 import Race from "./race";
 import User from "./user";
+import Rider from "./rider";
+import License from "./license";
 
 const RaceNote = db.define(
   "race_note",
@@ -40,10 +42,26 @@ const RaceNote = db.define(
       allowNull: false,
       defaultValue: DataTypes.NOW,
     },
+    id_rider: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: Rider,
+        key: "id",
+      },
+    },
+    id_licence: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: License,
+        key: "id",
+      },
+    },
   },
   {
     timestamps: false,
-    tableName: "circuit_note",
+    tableName: "race_note",
   }
 );
 

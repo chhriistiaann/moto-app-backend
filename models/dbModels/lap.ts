@@ -62,4 +62,6 @@ const Lap = db.define(
   }
 );
 
+
+
 export default Lap;

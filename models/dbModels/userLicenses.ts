@@ -1,18 +1,22 @@
 import { DataTypes } from "sequelize";
 import db from "../../database/connection";
 import User from "./user";
+import License from "./license";
 
 const UserLicenses = db.define(
-  "user_licenses",
+  "user_licences",
   {
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
       autoIncrement: true,
     },
-    id_license:{
+    id_licence:{
         type: DataTypes.INTEGER,
-        allowNull: false,
+        references: {
+            model: License,
+            key: 'id'
+        }
     },
     id_user:{
         type: DataTypes.INTEGER,
@@ -48,8 +52,10 @@ const UserLicenses = db.define(
   },
   {
     timestamps: false,
-    tableName: "user_licenses",
+    tableName: "user_licences",
   }
 );
+
+
 
 export default UserLicenses;

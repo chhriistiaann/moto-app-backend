@@ -1,5 +1,6 @@
 import { DataTypes } from "sequelize";
 import db from "../../database/connection";
+import UserToken from "./userTokens";
 
 const User = db.define(
   "user",
@@ -13,25 +14,28 @@ const User = db.define(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    email:{
-        type: DataTypes.STRING,
-        allowNull: false,
-        unique: true,
+    email: {
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true,
     },
     password: {
       type: DataTypes.STRING,
       allowNull: false,
     },
-    auth_token:{
-        type: DataTypes.STRING,
-        allowNull: true,
-        unique: true,
+    id_auth_token: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: UserToken,
+        key: "id",
+      },
     },
-    notification_token:{
-        type: DataTypes.STRING,
-        allowNull: true,
-        unique: true,
-    }
+    notification_token: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
   },
   {
     timestamps: false,

@@ -17,7 +17,7 @@ const License = db.define(
     },
     end_date: {
       type: DataTypes.DATE,
-      allowNull: true,
+      allowNull: false,
     },
     max_users: {
       type: DataTypes.INTEGER,
@@ -55,5 +55,6 @@ const License = db.define(
     tableName: "license",
   }
 );
+
 
 export default License;

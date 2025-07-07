@@ -2,6 +2,8 @@ import { DataTypes } from "sequelize";
 import db from "../../database/connection";
 import Circuit from "./circuit";
 import User from "./user";
+import License from "./license";
+import Rider from "./rider";
 
 const CircuitNote = db.define(
   "circuit_note",
@@ -39,6 +41,22 @@ const CircuitNote = db.define(
       type: DataTypes.DATE,
       allowNull: false,
       defaultValue: DataTypes.NOW,
+    },
+    id_rider: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: Rider,
+        key: "id",
+      },
+    },
+    id_licence: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: License,
+        key: "id",
+      },
     },
   },
   {
