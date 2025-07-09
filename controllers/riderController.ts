@@ -7,6 +7,7 @@ import TeamHistory from "../models/dbModels/teamHistory";
 import Team from "../models/dbModels/team";
 import { Op } from "sequelize";
 import Flag from "../models/dbModels/flag";
+import NumberHistory from "../models/dbModels/numberHistory";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -246,7 +247,6 @@ export const searchRider = async (
   try {
     const { name, dorsal } = req.body;
 
-
     if (name == "" && dorsal == "") {
       return res.status(200).json({
         code: "SUCCESS",
@@ -259,7 +259,6 @@ export const searchRider = async (
     const riders = await Rider.findAll({
       where: {
         ...(name && { name: { [Op.like]: `%${name}%` } }),
-        ...(dorsal && { number: dorsal }),
       },
       include: [
         {
@@ -281,12 +280,23 @@ export const searchRider = async (
           model: Flag,
           required: false,
         },
+        {
+          model: NumberHistory,
+          required: false,
+          where: {
+            ...(dorsal && { number: dorsal }),
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+        },
       ],
     });
 
     const ridersFormatted = riders.map((rider: any) => {
       const currentTeam = rider.team_histories?.[0]?.team || null;
       const flag = rider.flag;
+      const numberHistory = rider.number_histories?.[0] || null;
 
       return {
         id: rider.id,
@@ -294,7 +304,7 @@ export const searchRider = async (
         birth: rider.birth,
         place_of_birth: rider.place_of_birth,
         image: rider.image,
-        number: rider.number,
+        number: numberHistory?.number || null,
         instagram: rider.instagram,
         tiktok: rider.tiktok,
         flag: flag

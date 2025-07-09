@@ -8,6 +8,7 @@ import Team from "../models/dbModels/team";
 import Seasson from "../models/dbModels/seasson";
 import { Op } from "sequelize";
 import Flag from "../models/dbModels/flag";
+import NumberHistory from "../models/dbModels/numberHistory";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -200,6 +201,15 @@ export const getRanking = async (
               model: Flag,
               required: false,
             },
+            {
+              model: NumberHistory,
+              required: false,
+              where: {
+                end_date: {
+                  [Op.or]: [null, { [Op.gt]: new Date() }],
+                },
+              },
+            },
           ],
         });
 
@@ -207,7 +217,7 @@ export const getRanking = async (
           id: riderModel!.id,
           name: riderModel!.name,
           image: riderModel.image,
-          number: riderModel.number,
+          number: riderModel.number_histories?.[0]?.number || null,
           flag: riderModel.flag
             ? {
                 id: riderModel.flag.id,

@@ -7,6 +7,7 @@ import Lap from "./dbModels/lap";
 import License from "./dbModels/license";
 import LicensedRiders from "./dbModels/licensedRiders";
 import ManufacturerHistory from "./dbModels/manufacturerHistory";
+import NumberHistory from "./dbModels/numberHistory";
 import Race from "./dbModels/race";
 import RaceHighlights from "./dbModels/raceHighlights";
 import RaceNote from "./dbModels/raceNote";
@@ -31,6 +32,9 @@ TeamHistory.belongsTo(Rider, { foreignKey: "id_rider" });
 
 Rider.hasMany(ManufacturerHistory, { foreignKey: "id_rider" });
 ManufacturerHistory.belongsTo(Rider, { foreignKey: "id_rider" });
+
+Rider.hasMany(NumberHistory, { foreignKey: "id_rider" });
+NumberHistory.belongsTo(Rider, { foreignKey: "id_rider" });
 
 Rider.hasMany(Lap, { foreignKey: "id_rider" });
 Lap.belongsTo(Rider, { foreignKey: "id_rider" });

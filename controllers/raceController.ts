@@ -189,10 +189,6 @@ export const getRaceDetails = async (
         ([, time]) => time === minTime
       );
 
-      const riderDorsalWithMinTime = await Rider.findOne({
-        where: { id: riderIdWithMinTime ? riderIdWithMinTime[0] : null },
-        attributes: ["number"],
-      });
       const topSpeed = Math.max(...laps.map((lap: any) => lap.top_speed));
 
       const positionsList = new Map<number, any>();

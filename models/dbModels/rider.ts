@@ -27,10 +27,6 @@ const Rider = db.define(
       type: DataTypes.STRING,
       allowNull: true,
     },
-    number: {
-      type: DataTypes.STRING,
-      allowNull: false,
-    },
     id_flag: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -53,6 +49,5 @@ const Rider = db.define(
     tableName: "rider",
   }
 );
-
 
 export default Rider;

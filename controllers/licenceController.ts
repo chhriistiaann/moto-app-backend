@@ -9,6 +9,7 @@ import Team from "../models/dbModels/team";
 import Flag from "../models/dbModels/flag";
 import User from "../models/dbModels/user";
 import UserLicenses from "../models/dbModels/userLicenses";
+import NumberHistory from "../models/dbModels/numberHistory";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -46,6 +47,15 @@ export const selectLicence = async (
           required: false,
         },
         {
+          model: NumberHistory,
+          required: false,
+          where: {
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+        },
+        {
           model: LicensedRiders,
           required: false,
           where: {
@@ -79,7 +89,7 @@ export const selectLicence = async (
         birth: rider.birth,
         place_of_birth: rider.place_of_birth,
         image: rider.image,
-        number: rider.number,
+        number: rider.number_histories?.[0]?.number || null,
         instagram: rider.instagram,
         tiktok: rider.tiktok,
         flag: flag
@@ -150,7 +160,6 @@ export const getUsers = async (
         end_date: user.end_date,
       };
     });
-
 
     return res.status(200).json({
       code: "SUCCESS",
