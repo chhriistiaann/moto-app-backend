@@ -88,6 +88,11 @@ export const getComparation = async (
       const sorted = Array.from(totalTimesByRider.entries()).sort(
         (a, b) => a[1] - b[1]
       );
+      console.log("start ");
+
+      for (const sort of sorted) {
+        console.log(`Rider ID: ${sort[0]}, Total Time: ${sort[1]}`);
+      }
 
       const pos = sorted.findIndex(([id]) => id === riderId);
       return pos >= 0 ? pos + 1 : 0;
@@ -99,7 +104,8 @@ export const getComparation = async (
     // 7. Calcular estadísticas por tipo
     const calcStats = (
       lapsByType: Map<number, any[]>,
-      id: number
+      id: number,
+      raceLaps: any[]
     ): Map<number, any> => {
       const statsMap = new Map<number, any>();
       for (const [typeId, laps] of lapsByType.entries()) {
@@ -130,14 +136,18 @@ export const getComparation = async (
           best_seg3: best(sectors3),
           best_seg4: best(sectors4),
           ideal_lap: idealLap,
-          bestPosition: calcFinalPosition(laps, id, typeId),
+          bestPosition: calcFinalPosition(raceLaps, id, typeId),
         });
       }
       return statsMap;
     };
 
-    const firstRiderStats = calcStats(firstMap, first_rider);
-    const secondRiderStats = calcStats(secondMap, second_rider);
+    const firstRiderStats = calcStats(firstMap, first_rider, allFirstRaceLaps);
+    const secondRiderStats = calcStats(
+      secondMap,
+      second_rider,
+      allSecondRaceLaps
+    );
 
     // 8. Laps por tipo de ronda (solo comunes)
     const firstRiderLaps = new Map<number, any[]>();

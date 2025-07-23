@@ -8,6 +8,7 @@ import Team from "../models/dbModels/team";
 import { Op } from "sequelize";
 import Flag from "../models/dbModels/flag";
 import NumberHistory from "../models/dbModels/numberHistory";
+import CategoryHistory from "../models/dbModels/categoryHistory";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -246,6 +247,7 @@ export const searchRider = async (
 ): Promise<any> => {
   try {
     const { name, dorsal } = req.body;
+    const licence = req.licence;
 
     if (name == "" && dorsal == "") {
       return res.status(200).json({
@@ -261,6 +263,16 @@ export const searchRider = async (
         ...(name && { name: { [Op.like]: `%${name}%` } }),
       },
       include: [
+        {
+          model: CategoryHistory,
+          required: true,
+          where: {
+            id_category: licence.id_category,
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+        },
         {
           model: TeamHistory,
           required: false,
