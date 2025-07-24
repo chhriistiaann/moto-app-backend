@@ -5,7 +5,7 @@ import Race from "../models/dbModels/race";
 import Rider from "../models/dbModels/rider";
 import TeamHistory from "../models/dbModels/teamHistory";
 import Team from "../models/dbModels/team";
-import { Op } from "sequelize";
+import { literal, Op, where } from "sequelize";
 import Flag from "../models/dbModels/flag";
 import NumberHistory from "../models/dbModels/numberHistory";
 import CategoryHistory from "../models/dbModels/categoryHistory";
@@ -102,7 +102,6 @@ export const getProfile = async (
     }
 
     // q2
-
     const q2Laps: any = await Lap.findAll({
       include: [
         {
@@ -134,31 +133,31 @@ export const getProfile = async (
       }
     });
 
-    var totalPoles = 0;
+    let totalPoles = 0;
 
     for (const [raceId, laps] of q2LapsMap.entries()) {
-      const lapsByRider: Map<number, any[]> = new Map();
+      // Agrupar vueltas por piloto
+      const bestLapByRider: Map<number, number> = new Map();
+
       laps.forEach((lap: any) => {
         const riderId = lap.id_rider;
-        if (!lapsByRider.has(riderId)) {
-          lapsByRider.set(riderId, []);
+        const lapTime = lap.time ?? Infinity;
+
+        // Guardar mejor tiempo (mínimo)
+        if (
+          !bestLapByRider.has(riderId) ||
+          lapTime < bestLapByRider.get(riderId)!
+        ) {
+          bestLapByRider.set(riderId, lapTime);
         }
-        lapsByRider.get(riderId)!.push(lap);
       });
 
-      const positions: Map<number, number> = new Map();
-
-      for (const [riderId, riderLaps] of lapsByRider.entries()) {
-        const totalTime = riderLaps.reduce((sum: number, lap: any) => {
-          return sum + (lap.time || 0);
-        }, 0);
-        positions.set(riderId, totalTime);
-      }
-
-      const sortedPositions = Array.from(positions.entries()).sort(
+      // Ordenar pilotos por mejor vuelta ascendente
+      const sortedPositions = Array.from(bestLapByRider.entries()).sort(
         (a, b) => a[1] - b[1]
       );
 
+      // Si el primer puesto es el rider que buscamos, suma una pole
       if (
         sortedPositions.length > 0 &&
         sortedPositions[0][0] === Number(id_rider)
@@ -166,6 +165,8 @@ export const getProfile = async (
         totalPoles++;
       }
     }
+
+    // team history
 
     const teamHistory = await TeamHistory.findAll({
       where: {
@@ -249,6 +250,12 @@ export const searchRider = async (
     const { name, dorsal } = req.body;
     const licence = req.licence;
 
+    var realDorsal = dorsal;
+
+    if (dorsal == -1) {
+      realDorsal = null;
+    }
+
     if (name == "" && dorsal == "") {
       return res.status(200).json({
         code: "SUCCESS",
@@ -258,9 +265,27 @@ export const searchRider = async (
       });
     }
 
+    console.log(
+      "Searching for riders with name:",
+      name,
+      "and dorsal:",
+      realDorsal
+    );
+
+    const normalizedName = name
+      ?.normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
     const riders = await Rider.findAll({
       where: {
-        ...(name && { name: { [Op.like]: `%${name}%` } }),
+        ...(name && {
+          [Op.and]: [
+            where(literal(`unaccent(lower("rider"."name"))`), {
+              [Op.like]: `%${normalizedName}%`,
+            }),
+          ],
+        }),
       },
       include: [
         {
@@ -296,7 +321,7 @@ export const searchRider = async (
           model: NumberHistory,
           required: false,
           where: {
-            ...(dorsal && { number: dorsal }),
+            ...(realDorsal && { number: realDorsal }),
             end_date: {
               [Op.or]: [null, { [Op.gt]: new Date() }],
             },
@@ -335,6 +360,8 @@ export const searchRider = async (
           : null,
       };
     });
+
+    console.log("Riders found:", ridersFormatted.length);
 
     return res.status(200).json({
       code: "SUCCESS",

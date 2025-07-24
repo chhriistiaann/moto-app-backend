@@ -68,38 +68,77 @@ export const getComparation = async (
       secondRiderRounds.set(typeId, secondMap.get(typeId)![0].round);
     }
 
-    // 6. Calcular posición REAL en Q2 (tipo 5) entre TODOS los corredores
+    // 6. Calcular posición REAL las rondas entre TODOS los corredores
     const calcFinalPosition = (
       allLaps: any[],
       riderId: number,
-      roundTypeId: number
+      roundTypeId: number,
+      minLapsThresholdRatio = 0.9 // Ejemplo: mínimo 90% de vueltas del máximo para contar
     ): number => {
+      // Filtrar vueltas por tipo de ronda
       const filtered = allLaps.filter(
         (lap) => lap.round?.round_type?.id === roundTypeId
       );
 
+      // Contar número de vueltas por piloto
+      const lapsCountByRider = new Map<number, number>();
+      filtered.forEach((lap) => {
+        const id = lap.id_rider;
+        lapsCountByRider.set(id, (lapsCountByRider.get(id) ?? 0) + 1);
+      });
+
+      // Número máximo de vueltas completadas por algún piloto
+      const maxLaps = Math.max(...lapsCountByRider.values());
+
+      // Umbral mínimo de vueltas para contar (por ejemplo 90% de maxLaps)
+      const minLaps = Math.ceil(maxLaps * minLapsThresholdRatio);
+
+      // Sumar tiempos solo de pilotos que cumplen con el mínimo de vueltas
       const totalTimesByRider = new Map<number, number>();
       for (const lap of filtered) {
         const id = lap.id_rider;
-        const current = totalTimesByRider.get(id) ?? 0;
-        totalTimesByRider.set(id, current + (lap.total_time || 0));
+        if ((lapsCountByRider.get(id) ?? 0) >= minLaps) {
+          const current = totalTimesByRider.get(id) ?? 0;
+          totalTimesByRider.set(id, current + (lap.total_time || 0));
+        }
       }
 
+      // Ordenar por tiempo ascendente
       const sorted = Array.from(totalTimesByRider.entries()).sort(
         (a, b) => a[1] - b[1]
       );
-      console.log("start ");
 
-      for (const sort of sorted) {
-        console.log(`Rider ID: ${sort[0]}, Total Time: ${sort[1]}`);
+      // Buscar la posición del riderId
+      const pos = sorted.findIndex(([id]) => id === riderId);
+
+      // Si no está o no cumple vueltas, devuelve 0 (fuera de posición)
+      return pos >= 0 ? pos + 1 : 0;
+    };
+
+    const calcQ2 = (allLaps: any[], riderId: number): number => {
+      const filtered = allLaps.filter((lap) => lap.round?.round_type?.id === 5);
+
+      const bestLapByRider = new Map<number, number>();
+
+      for (const lap of filtered) {
+        const id = lap.id_rider;
+        const lapTime = lap.total_time ?? Infinity;
+
+        if (!bestLapByRider.has(id) || lapTime < bestLapByRider.get(id)!) {
+          bestLapByRider.set(id, lapTime);
+        }
       }
+
+      const sorted = Array.from(bestLapByRider.entries()).sort(
+        (a, b) => a[1] - b[1]
+      );
 
       const pos = sorted.findIndex(([id]) => id === riderId);
       return pos >= 0 ? pos + 1 : 0;
     };
 
-    const firstQ2 = calcFinalPosition(allFirstRaceLaps, first_rider, 5);
-    const secondQ2 = calcFinalPosition(allSecondRaceLaps, second_rider, 5);
+    const firstQ2 = calcQ2(allFirstRaceLaps, first_rider);
+    const secondQ2 = calcQ2(allSecondRaceLaps, second_rider);
 
     // 7. Calcular estadísticas por tipo
     const calcStats = (

@@ -13,6 +13,9 @@ import User from "../models/dbModels/user";
 import RoundType from "../models/dbModels/roundType";
 import { uploadImageToSupabase } from "../services/image_service";
 import { Op } from "sequelize";
+import NumberHistory from "../models/dbModels/numberHistory";
+import Team from "../models/dbModels/team";
+import TeamHistory from "../models/dbModels/teamHistory";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -184,10 +187,25 @@ export const getRaceDetails = async (
         Array.from(minTimes.values()).reduce((acc, time) => acc + time, 0) /
         minTimes.size;
 
+      const avgMinTimeInt = Math.floor(avgMinTime);
+
       const minTime = Math.min(...Array.from(minTimes.values()));
       const riderIdWithMinTime = Array.from(minTimes.entries()).find(
         ([, time]) => time === minTime
       );
+
+      var currentRiderDorsal: any = null;
+
+      if (riderIdWithMinTime) {
+        currentRiderDorsal = await NumberHistory.findOne({
+          where: {
+            id_rider: riderIdWithMinTime[0],
+            end_date: {
+              [Op.or]: [{ [Op.is]: null }, { [Op.gt]: new Date() }],
+            },
+          },
+        });
+      }
 
       const topSpeed = Math.max(...laps.map((lap: any) => lap.top_speed));
 
@@ -213,12 +231,82 @@ export const getRaceDetails = async (
       const positionsArray = Array.from(positionsList.values());
       positionsArray.sort((a, b) => a.totalTime - b.totalTime);
 
+      const tmpRiders_ids = Array.from(lapsByRider.keys());
+      const riders = await Rider.findAll({
+        where: {
+          id: tmpRiders_ids,
+        },
+        include: [
+          {
+            model: TeamHistory,
+            required: true,
+            where: {
+              end_date: {
+                [Op.or]: [null, { [Op.gt]: new Date() }],
+              },
+            },
+            include: [
+              {
+                model: Team,
+                required: false,
+              },
+            ],
+          },
+          {
+            model: Flag,
+            required: false,
+          },
+          {
+            model: NumberHistory,
+            required: false,
+            where: {
+              end_date: {
+                [Op.or]: [null, { [Op.gt]: new Date() }],
+              },
+            },
+          },
+        ],
+      });
+
+      const ridersFormatted = riders.map((rider: any) => {
+        const currentTeam = rider.team_histories?.[0]?.team || null;
+        const flag = rider.flag;
+
+        return {
+          id: rider.id,
+          name: rider.name,
+          birth: rider.birth,
+          place_of_birth: rider.place_of_birth,
+          image: rider.image,
+          number: rider.number_histories?.[0]?.number || null,
+          instagram: rider.instagram,
+          tiktok: rider.tiktok,
+          flag: flag
+            ? {
+                id: flag.id,
+                name: flag.name,
+                image: flag.image,
+              }
+            : null,
+          team: currentTeam
+            ? {
+                id: currentTeam.id,
+                name: currentTeam.name,
+                image: currentTeam.image,
+              }
+            : null,
+        };
+      });
+
       const roundStat = {
-        avgMinTime: avgMinTime,
+        avgMinTime: avgMinTimeInt,
         minTime: minTime,
-        riderIdWithMinTime: riderIdWithMinTime ? riderIdWithMinTime[0] : null,
+        riderIdWithMinTime: currentRiderDorsal
+          ? currentRiderDorsal.number
+          : null,
         topSpeed: topSpeed,
         positions: positionsArray,
+        riders: ridersFormatted,
       };
       roundStats.set(roundId, roundStat);
 
