@@ -232,9 +232,9 @@ export const getRaceDetails = async (
 
       const roundModel: any = await Round.findByPk(roundId);
 
-      if (roundModel.id_type === 4 || roundModel.id_type === 5) {
+      if (roundModel.id_type !== 8) {
         positionsArray.sort((a, b) => a.minTime - b.minTime);
-      } else if (roundModel.id_type === 8) {
+      } else {
         // Paso 1: Obtener cantidad de vueltas por piloto
         const riderLapCounts = new Map<number, number>(); // riderId -> count
         for (const [riderId, laps] of lapsByRider.entries()) {
@@ -266,8 +266,6 @@ export const getRaceDetails = async (
         // Paso 6: Recombinar
         positionsArray.length = 0;
         positionsArray.push(...fullRiders, ...incompleteRiders);
-      } else {
-        positionsArray.sort((a, b) => a.totalTime - b.totalTime);
       }
 
       const tmpRiders_ids = Array.from(lapsByRider.keys());
