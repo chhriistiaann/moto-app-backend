@@ -229,7 +229,46 @@ export const getRaceDetails = async (
       }
 
       const positionsArray = Array.from(positionsList.values());
-      positionsArray.sort((a, b) => a.totalTime - b.totalTime);
+
+      const roundModel: any = await Round.findByPk(roundId);
+
+      if (roundModel.id_type === 4 || roundModel.id_type === 5) {
+        positionsArray.sort((a, b) => a.minTime - b.minTime);
+      } else if (roundModel.id_type === 8) {
+        // Paso 1: Obtener cantidad de vueltas por piloto
+        const riderLapCounts = new Map<number, number>(); // riderId -> count
+        for (const [riderId, laps] of lapsByRider.entries()) {
+          riderLapCounts.set(riderId, laps.length);
+        }
+
+        // Paso 2: Calcular el máximo de vueltas hechas por un piloto
+        const maxLaps = Math.max(...Array.from(riderLapCounts.values()));
+
+        // Paso 3: Calcular el 90% mínimo requerido
+        const minLapsRequired = Math.ceil(maxLaps * 0.9);
+
+        // Paso 4: Separar pilotos que cumplen o no con el mínimo
+        const fullRiders: typeof positionsArray = [];
+        const incompleteRiders: typeof positionsArray = [];
+
+        for (const pos of positionsArray) {
+          const lapsCount = riderLapCounts.get(pos.riderId) || 0;
+          if (lapsCount >= minLapsRequired) {
+            fullRiders.push(pos);
+          } else {
+            incompleteRiders.push(pos);
+          }
+        }
+
+        // Paso 5: Ordenar los que cumplen por totalTime
+        fullRiders.sort((a, b) => a.totalTime - b.totalTime);
+        incompleteRiders.sort((a, b) => a.totalTime - b.totalTime);
+        // Paso 6: Recombinar
+        positionsArray.length = 0;
+        positionsArray.push(...fullRiders, ...incompleteRiders);
+      } else {
+        positionsArray.sort((a, b) => a.totalTime - b.totalTime);
+      }
 
       const tmpRiders_ids = Array.from(lapsByRider.keys());
       const riders = await Rider.findAll({
@@ -344,12 +383,8 @@ export const getRaceDetails = async (
           Infinity
         );
 
-        const sortedPositions = Array.from(positionsList.entries()).sort(
-          (a, b) => a[1].totalTime - b[1].totalTime
-        );
-
-        const positionIndex = sortedPositions.findIndex(
-          ([id]) => id === riderId
+        const positionIndex = positionsArray.findIndex(
+          (pos) => pos.riderId === riderId
         );
 
         const userStat = {

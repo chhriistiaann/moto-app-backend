@@ -96,9 +96,41 @@ export const getRanking = async (
         positions.set(riderId, totalTime);
       }
 
-      const sortedPositions = Array.from(positions.entries()).sort(
-        (a, b) => a[1] - b[1]
-      );
+      // Paso 1: Agrupar laps por rider (ya está hecho arriba)
+      const riderLapCounts = new Map<number, number>();
+      for (const [riderId, riderLaps] of lapsByRider.entries()) {
+        riderLapCounts.set(riderId, riderLaps.length);
+      }
+
+      // Paso 2: Calcular el máximo de vueltas
+      const maxLaps = Math.max(...Array.from(riderLapCounts.values()));
+
+      // Paso 3: Calcular el mínimo (90%)
+      const minLapsRequired = Math.ceil(maxLaps * 0.9);
+
+      // Paso 4: Calcular totalTime y clasificar
+      const fullRiders: [number, number][] = []; // [riderId, totalTime]
+      const incompleteRiders: [number, number][] = [];
+
+      for (const [riderId, riderLaps] of lapsByRider.entries()) {
+        const totalTime = riderLaps.reduce((sum: number, lap: any) => {
+          return sum + (lap.time || 0);
+        }, 0);
+
+        const lapsCount = riderLapCounts.get(riderId) || 0;
+        if (lapsCount >= minLapsRequired) {
+          fullRiders.push([riderId, totalTime]);
+        } else {
+          incompleteRiders.push([riderId, totalTime]);
+        }
+      }
+
+      // Paso 5: Ordenar los válidos primero por totalTime
+      fullRiders.sort((a, b) => a[1] - b[1]);
+      incompleteRiders.sort((a, b) => a[1] - b[1]);
+
+      // Paso 6: Combinar en un solo array
+      const sortedPositions = [...fullRiders, ...incompleteRiders];
 
       // Añadir puntos a corredores que participaron
       sortedPositions.forEach(([riderId, totalTime], index) => {

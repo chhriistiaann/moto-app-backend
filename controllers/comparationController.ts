@@ -87,31 +87,53 @@ export const getComparation = async (
         lapsCountByRider.set(id, (lapsCountByRider.get(id) ?? 0) + 1);
       });
 
-      // Número máximo de vueltas completadas por algún piloto
+      // Calcular el número máximo de vueltas hechas por algún piloto
       const maxLaps = Math.max(...lapsCountByRider.values());
 
-      // Umbral mínimo de vueltas para contar (por ejemplo 90% de maxLaps)
+      // Calcular el mínimo de vueltas requeridas (ej. 90%)
       const minLaps = Math.ceil(maxLaps * minLapsThresholdRatio);
 
-      // Sumar tiempos solo de pilotos que cumplen con el mínimo de vueltas
+      // Separar pilotos válidos e inválidos según el mínimo de vueltas
+      const totalTimesFullRiders: [number, number][] = [];
+      const totalTimesIncompleteRiders: [number, number][] = [];
+
       const totalTimesByRider = new Map<number, number>();
+
       for (const lap of filtered) {
         const id = lap.id_rider;
-        if ((lapsCountByRider.get(id) ?? 0) >= minLaps) {
-          const current = totalTimesByRider.get(id) ?? 0;
-          totalTimesByRider.set(id, current + (lap.total_time || 0));
+        const isValid = (lapsCountByRider.get(id) ?? 0) >= minLaps;
+        const current = totalTimesByRider.get(id) ?? 0;
+        totalTimesByRider.set(id, current + (lap.total_time || 0));
+      }
+
+      // Clasificar a válidos e inválidos solo si el tipo de ronda es 8
+      if (roundTypeId === 8) {
+        for (const [riderId, totalTime] of totalTimesByRider.entries()) {
+          const isValid = (lapsCountByRider.get(riderId) ?? 0) >= minLaps;
+          const entry: [number, number] = [riderId, totalTime];
+          if (isValid) {
+            totalTimesFullRiders.push(entry);
+          } else {
+            totalTimesIncompleteRiders.push(entry);
+          }
+        }
+      } else {
+        // Si no es tipo 8, todos son válidos
+        for (const [riderId, totalTime] of totalTimesByRider.entries()) {
+          totalTimesFullRiders.push([riderId, totalTime]);
         }
       }
 
-      // Ordenar por tiempo ascendente
-      const sorted = Array.from(totalTimesByRider.entries()).sort(
-        (a, b) => a[1] - b[1]
-      );
+      // Ordenar válidos primero por tiempo, luego inválidos
+      totalTimesFullRiders.sort((a, b) => a[1] - b[1]);
+      totalTimesIncompleteRiders.sort((a, b) => a[1] - b[1]);
 
-      // Buscar la posición del riderId
+      const sorted = [...totalTimesFullRiders, ...totalTimesIncompleteRiders];
+
+      // Buscar posición del rider
       const pos = sorted.findIndex(([id]) => id === riderId);
 
-      // Si no está o no cumple vueltas, devuelve 0 (fuera de posición)
+      // Si no está o no cumple, devolver 0
       return pos >= 0 ? pos + 1 : 0;
     };
 

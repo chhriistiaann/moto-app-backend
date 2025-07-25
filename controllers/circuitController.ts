@@ -223,17 +223,33 @@ export const getCircuitDetails = async (
         }
 
         // Calcular posición del rider en esta carrera
-        const positions: { riderId: number; total: number }[] = [];
+        const riderLapCounts = Array.from(ridersLaps.entries()).map(
+          ([_, laps]) => laps.length
+        );
+        const maxLaps = Math.max(...riderLapCounts);
+        const minLapsRequired = Math.ceil(maxLaps * 0.9);
+
+        const fullRiders: { riderId: number; total: number }[] = [];
+        const incompleteRiders: { riderId: number; total: number }[] = [];
+
         for (const [rId, laps] of ridersLaps.entries()) {
           const total = laps.reduce(
             (sum, lap) => sum + (lap.total_time || 0),
             0
           );
-          positions.push({ riderId: rId, total });
+          const lapsCount = laps.length;
+          const riderData = { riderId: rId, total };
+
+          if (lapsCount >= minLapsRequired) {
+            fullRiders.push(riderData);
+          } else {
+            incompleteRiders.push(riderData);
+          }
         }
 
-        // Ordenar y asignar posiciones
-        positions.sort((a, b) => a.total - b.total);
+        fullRiders.sort((a, b) => a.total - b.total);
+        incompleteRiders.sort((a, b) => a.total - b.total);
+        const positions = [...fullRiders, ...incompleteRiders];
         const position = positions.findIndex((p) => p.riderId === riderId) + 1;
         if (position < bestPosition) {
           bestPosition = position;
@@ -249,7 +265,7 @@ export const getCircuitDetails = async (
         best_seg4: bestSectors[3],
         ideal_lap:
           bestSectors[0] + bestSectors[1] + bestSectors[2] + bestSectors[3],
-        pos: bestPosition,
+        bestPosition: bestPosition,
       });
     }
 
@@ -341,15 +357,34 @@ export const getCircuitDetails = async (
           0
         );
 
-        const positions: { riderId: number; total: number }[] = [];
+        const riderLapCounts = Array.from(riderMap.entries()).map(
+          ([_, laps]) => laps.length
+        );
+        const maxLaps = Math.max(...riderLapCounts);
+        const minLapsRequired = Math.ceil(maxLaps * 0.9);
+
+        const fullRiders: { riderId: number; total: number }[] = [];
+        const incompleteRiders: { riderId: number; total: number }[] = [];
+
         for (const [rId, laps] of riderMap.entries()) {
-          const t = laps.reduce((sum, lap) => sum + (lap.total_time || 0), 0);
-          positions.push({ riderId: rId, total: t });
+          const total = laps.reduce(
+            (sum, lap) => sum + (lap.total_time || 0),
+            0
+          );
+          const riderData = { riderId: rId, total };
+
+          if (laps.length >= minLapsRequired) {
+            fullRiders.push(riderData);
+          } else {
+            incompleteRiders.push(riderData);
+          }
         }
 
-        positions.sort((a, b) => a.total - b.total);
-        const position = positions.findIndex((p) => p.riderId === riderId) + 1;
+        const positions = [...fullRiders, ...incompleteRiders].sort(
+          (a, b) => a.total - b.total
+        );
 
+        const position = positions.findIndex((p) => p.riderId === riderId) + 1;
         mapToUse.set(riderId, {
           min_time: minTime,
           topSpeed: maxSpeed,
@@ -358,7 +393,7 @@ export const getCircuitDetails = async (
           best_seg3: bestSeg3,
           best_seg4: bestSeg4,
           ideal_lap: bestSeg1 + bestSeg2 + bestSeg3 + bestSeg4,
-          pos: position,
+          bestPosition: position,
         });
       }
     }
