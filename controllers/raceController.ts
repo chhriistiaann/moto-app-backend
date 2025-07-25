@@ -276,7 +276,7 @@ export const getRaceDetails = async (
         include: [
           {
             model: TeamHistory,
-            required: true,
+            required: false,
             where: {
               end_date: {
                 [Op.or]: [null, { [Op.gt]: new Date() }],
