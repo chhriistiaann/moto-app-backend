@@ -9,6 +9,7 @@ import Seasson from "../models/dbModels/seasson";
 import { Op } from "sequelize";
 import Flag from "../models/dbModels/flag";
 import NumberHistory from "../models/dbModels/numberHistory";
+import { sortLapsByRoundType } from "../functions/podiumList";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -25,6 +26,7 @@ export const getRanking = async (
     const { id_seasson } = req.params;
     const seasson: any = await Seasson.findByPk(id_seasson);
 
+    // Obtener todas las vueltas para carreras tipo 8 en esta temporada
     const raceLaps: any = await Lap.findAll({
       include: [
         {
@@ -44,8 +46,8 @@ export const getRanking = async (
       ],
     });
 
-    const riders: any[] = [];
-
+    // Extraemos todos los riders únicos que participaron
+    const riders: number[] = [];
     raceLaps.forEach((lap: any) => {
       const riderId = lap.id_rider;
       if (!riders.includes(riderId)) {
@@ -53,8 +55,8 @@ export const getRanking = async (
       }
     });
 
+    // Agrupar vueltas por carrera
     const raceLapsMap: Map<number, any[]> = new Map();
-
     raceLaps.forEach((lap: any) => {
       const raceId = lap.round?.race?.id;
       if (raceId) {
@@ -65,6 +67,7 @@ export const getRanking = async (
       }
     });
 
+    // Ordenar carreras por fecha ascendente
     const sortedRaceLapsMap: Map<number, any[]> = new Map(
       [...raceLapsMap.entries()].sort((a, b) => {
         const dateA = a[1][0]?.round?.race?.date;
@@ -73,81 +76,30 @@ export const getRanking = async (
       })
     );
 
+    // Mapa para almacenar puntos por rider en cada carrera
     const listPointsByRider: Map<number, number[]> = new Map();
 
-    var raceNumber = 0;
+    let raceNumber = 0;
 
+    // Iterar por cada carrera para calcular posiciones y puntos
     for (const [raceId, laps] of sortedRaceLapsMap.entries()) {
-      const lapsByRider: Map<number, any[]> = new Map();
-      laps.forEach((lap: any) => {
-        const riderId = lap.id_rider;
-        if (!lapsByRider.has(riderId)) {
-          lapsByRider.set(riderId, []);
-        }
-        lapsByRider.get(riderId)!.push(lap);
-      });
+      const sortedPositions = sortLapsByRoundType(laps, 8);
 
-      const positions: Map<number, number> = new Map();
-
-      for (const [riderId, riderLaps] of lapsByRider.entries()) {
-        const totalTime = riderLaps.reduce((sum: number, lap: any) => {
-          return sum + (lap.time || 0);
-        }, 0);
-        positions.set(riderId, totalTime);
-      }
-
-      // Paso 1: Agrupar laps por rider (ya está hecho arriba)
-      const riderLapCounts = new Map<number, number>();
-      for (const [riderId, riderLaps] of lapsByRider.entries()) {
-        riderLapCounts.set(riderId, riderLaps.length);
-      }
-
-      // Paso 2: Calcular el máximo de vueltas
-      const maxLaps = Math.max(...Array.from(riderLapCounts.values()));
-
-      // Paso 3: Calcular el mínimo (90%)
-      const minLapsRequired = Math.ceil(maxLaps * 0.9);
-
-      // Paso 4: Calcular totalTime y clasificar
-      const fullRiders: [number, number][] = []; // [riderId, totalTime]
-      const incompleteRiders: [number, number][] = [];
-
-      for (const [riderId, riderLaps] of lapsByRider.entries()) {
-        const totalTime = riderLaps.reduce((sum: number, lap: any) => {
-          return sum + (lap.time || 0);
-        }, 0);
-
-        const lapsCount = riderLapCounts.get(riderId) || 0;
-        if (lapsCount >= minLapsRequired) {
-          fullRiders.push([riderId, totalTime]);
-        } else {
-          incompleteRiders.push([riderId, totalTime]);
-        }
-      }
-
-      // Paso 5: Ordenar los válidos primero por totalTime
-      fullRiders.sort((a, b) => a[1] - b[1]);
-      incompleteRiders.sort((a, b) => a[1] - b[1]);
-
-      // Paso 6: Combinar en un solo array
-      const sortedPositions = [...fullRiders, ...incompleteRiders];
-
-      // Añadir puntos a corredores que participaron
-      sortedPositions.forEach(([riderId, totalTime], index) => {
-        const points = getPointsForPosition(index + 1);
+      // Asignar puntos según posición
+      sortedPositions.forEach((entry, index) => {
+        const points = getPointsForPosition(index);
+        const riderId = entry.riderId;
         if (!listPointsByRider.has(riderId)) {
           listPointsByRider.set(riderId, []);
         }
         listPointsByRider.get(riderId)!.push(points);
       });
 
-      // Asegurar que todos los corredores tengan puntos por esta carrera
       riders.forEach((riderId) => {
         if (!listPointsByRider.has(riderId)) {
           listPointsByRider.set(riderId, []);
         }
         const pointsArray = listPointsByRider.get(riderId)!;
-        // Si aún no se ha agregado un punto por esta carrera, agregar 0
         if (pointsArray.length < raceNumber + 1) {
           pointsArray.push(0);
         }
@@ -156,8 +108,8 @@ export const getRanking = async (
       raceNumber++;
     }
 
-    var ranking: any[] = [];
-
+    // Construir ranking sumando puntos totales por rider
+    const ranking: any[] = [];
     listPointsByRider.forEach((pointsArray, riderId) => {
       const totalPoints = pointsArray.reduce((sum, points) => sum + points, 0);
       ranking.push({
@@ -166,19 +118,19 @@ export const getRanking = async (
       });
     });
 
+    // Ordenar ranking actual
     const currentRankingSorted = [...ranking].sort(
       (a, b) => b.totalPoints - a.totalPoints
     );
 
+    // Crear ranking anterior (sin la última carrera)
     const listPointsByRiderBeforeLastRace: Map<number, number[]> = new Map();
-
     listPointsByRider.forEach((pointsArray, riderId) => {
-      const cloned = pointsArray.slice(0, -1); // elimina el último valor
+      const cloned = pointsArray.slice(0, -1);
       listPointsByRiderBeforeLastRace.set(riderId, cloned);
     });
 
     const previousRanking: { id_rider: number; totalPoints: number }[] = [];
-
     listPointsByRiderBeforeLastRace.forEach((pointsArray, riderId) => {
       const totalPoints = pointsArray.reduce((sum, points) => sum + points, 0);
       previousRanking.push({
@@ -187,12 +139,13 @@ export const getRanking = async (
       });
     });
 
-    // Ordenar de mayor a menor puntos (posición 1 es el mejor)
+    // Ordenar ranking anterior
     previousRanking.sort((a, b) => b.totalPoints - a.totalPoints);
 
     const riderList: any[] = [];
 
-    ranking = await Promise.all(
+    // Completar información y calcular modo posición (subió, bajó, igual)
+    const rankingWithDetails = await Promise.all(
       ranking.map(async (rider) => {
         const currentPos = currentRankingSorted.findIndex(
           (r) => r.id_rider === rider.id_rider
@@ -245,7 +198,7 @@ export const getRanking = async (
           ],
         });
 
-        const formmatedRider: any = {
+        const formattedRider: any = {
           id: riderModel!.id,
           name: riderModel!.name,
           image: riderModel.image,
@@ -266,7 +219,7 @@ export const getRanking = async (
             : null,
         };
 
-        riderList.push(formmatedRider);
+        riderList.push(formattedRider);
 
         return {
           rider: rider.id_rider,
@@ -276,14 +229,13 @@ export const getRanking = async (
       })
     );
 
-    // turn listPointsByRider to object
     const listPointsByRiderObject = Object.fromEntries(listPointsByRider);
 
     return res.status(200).json({
       code: "SUCCESS",
       data: {
         stats: {
-          ranking,
+          ranking: rankingWithDetails,
           listPointsByRider: listPointsByRiderObject,
           riderList,
         },
@@ -300,5 +252,5 @@ export const getRanking = async (
 
 const getPointsForPosition = (position: number): number => {
   const pointsTable = [25, 20, 16, 13, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-  return pointsTable[position - 1] || 0;
+  return pointsTable[position] || 0;
 };

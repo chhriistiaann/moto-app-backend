@@ -16,6 +16,7 @@ import { Op } from "sequelize";
 import NumberHistory from "../models/dbModels/numberHistory";
 import Team from "../models/dbModels/team";
 import TeamHistory from "../models/dbModels/teamHistory";
+import { sortLapsByRoundType } from "../functions/podiumList";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -209,64 +210,9 @@ export const getRaceDetails = async (
 
       const topSpeed = Math.max(...laps.map((lap: any) => lap.top_speed));
 
-      const positionsList = new Map<number, any>();
-
-      for (const [riderId, riderLaps] of lapsByRider.entries()) {
-        const minTime = Math.min(
-          ...riderLaps.map((lap: any) => lap.total_time)
-        );
-
-        const totalTime = riderLaps.reduce(
-          (acc: number, lap: any) => acc + lap.total_time,
-          0
-        );
-
-        positionsList.set(riderId, {
-          riderId: riderId,
-          minTime: minTime,
-          totalTime: totalTime,
-        });
-      }
-
-      const positionsArray = Array.from(positionsList.values());
-
       const roundModel: any = await Round.findByPk(roundId);
 
-      if (roundModel.id_type !== 8) {
-        positionsArray.sort((a, b) => a.minTime - b.minTime);
-      } else {
-        // Paso 1: Obtener cantidad de vueltas por piloto
-        const riderLapCounts = new Map<number, number>(); // riderId -> count
-        for (const [riderId, laps] of lapsByRider.entries()) {
-          riderLapCounts.set(riderId, laps.length);
-        }
-
-        // Paso 2: Calcular el máximo de vueltas hechas por un piloto
-        const maxLaps = Math.max(...Array.from(riderLapCounts.values()));
-
-        // Paso 3: Calcular el 90% mínimo requerido
-        const minLapsRequired = Math.ceil(maxLaps * 0.9);
-
-        // Paso 4: Separar pilotos que cumplen o no con el mínimo
-        const fullRiders: typeof positionsArray = [];
-        const incompleteRiders: typeof positionsArray = [];
-
-        for (const pos of positionsArray) {
-          const lapsCount = riderLapCounts.get(pos.riderId) || 0;
-          if (lapsCount >= minLapsRequired) {
-            fullRiders.push(pos);
-          } else {
-            incompleteRiders.push(pos);
-          }
-        }
-
-        // Paso 5: Ordenar los que cumplen por totalTime
-        fullRiders.sort((a, b) => a.totalTime - b.totalTime);
-        incompleteRiders.sort((a, b) => a.totalTime - b.totalTime);
-        // Paso 6: Recombinar
-        positionsArray.length = 0;
-        positionsArray.push(...fullRiders, ...incompleteRiders);
-      }
+      const positionsArray = sortLapsByRoundType(laps, roundModel.id_type);
 
       const tmpRiders_ids = Array.from(lapsByRider.keys());
       const riders = await Rider.findAll({

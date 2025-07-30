@@ -12,6 +12,7 @@ import Flag from "../models/dbModels/flag";
 import CircuitNote from "../models/dbModels/circuitNote";
 import { uploadImageToSupabase } from "../services/image_service";
 import User from "../models/dbModels/user";
+import { sortLapsByRoundType } from "../functions/podiumList";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -63,7 +64,7 @@ export const getCircuits = async (
     const circuitos = await Circuit.findAll({
       include: [
         {
-          model: Flag, // 👈 Aquí incluimos la bandera
+          model: Flag,
           required: false,
         },
         {
@@ -223,34 +224,12 @@ export const getCircuitDetails = async (
         }
 
         // Calcular posición del rider en esta carrera
-        const riderLapCounts = Array.from(ridersLaps.entries()).map(
-          ([_, laps]) => laps.length
+        const allRaceLaps = Array.from(ridersLaps.values()).flat();
+        const positionsArray = sortLapsByRoundType(allRaceLaps, 8);
+        const position = positionsArray.findIndex(
+          (entry) => entry.riderId === riderId
         );
-        const maxLaps = Math.max(...riderLapCounts);
-        const minLapsRequired = Math.ceil(maxLaps * 0.9);
 
-        const fullRiders: { riderId: number; total: number }[] = [];
-        const incompleteRiders: { riderId: number; total: number }[] = [];
-
-        for (const [rId, laps] of ridersLaps.entries()) {
-          const total = laps.reduce(
-            (sum, lap) => sum + (lap.total_time || 0),
-            0
-          );
-          const lapsCount = laps.length;
-          const riderData = { riderId: rId, total };
-
-          if (lapsCount >= minLapsRequired) {
-            fullRiders.push(riderData);
-          } else {
-            incompleteRiders.push(riderData);
-          }
-        }
-
-        fullRiders.sort((a, b) => a.total - b.total);
-        incompleteRiders.sort((a, b) => a.total - b.total);
-        const positions = [...fullRiders, ...incompleteRiders];
-        const position = positions.findIndex((p) => p.riderId === riderId) + 1;
         if (position < bestPosition) {
           bestPosition = position;
         }
@@ -357,34 +336,11 @@ export const getCircuitDetails = async (
           0
         );
 
-        const riderLapCounts = Array.from(riderMap.entries()).map(
-          ([_, laps]) => laps.length
+        const allLaps = Array.from(riderMap.values()).flat();
+        const sortedLaps = sortLapsByRoundType(allLaps, 8);
+        const position = sortedLaps.findIndex(
+          (entry) => entry.riderId === riderId
         );
-        const maxLaps = Math.max(...riderLapCounts);
-        const minLapsRequired = Math.ceil(maxLaps * 0.9);
-
-        const fullRiders: { riderId: number; total: number }[] = [];
-        const incompleteRiders: { riderId: number; total: number }[] = [];
-
-        for (const [rId, laps] of riderMap.entries()) {
-          const total = laps.reduce(
-            (sum, lap) => sum + (lap.total_time || 0),
-            0
-          );
-          const riderData = { riderId: rId, total };
-
-          if (laps.length >= minLapsRequired) {
-            fullRiders.push(riderData);
-          } else {
-            incompleteRiders.push(riderData);
-          }
-        }
-
-        const positions = [...fullRiders, ...incompleteRiders].sort(
-          (a, b) => a.total - b.total
-        );
-
-        const position = positions.findIndex((p) => p.riderId === riderId) + 1;
         mapToUse.set(riderId, {
           min_time: minTime,
           topSpeed: maxSpeed,

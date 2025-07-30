@@ -9,6 +9,7 @@ import { literal, Op, where } from "sequelize";
 import Flag from "../models/dbModels/flag";
 import NumberHistory from "../models/dbModels/numberHistory";
 import CategoryHistory from "../models/dbModels/categoryHistory";
+import { sortLapsByRoundType } from "../functions/podiumList";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -22,14 +23,11 @@ export const getProfile = async (
   try {
     const { id_rider, id_seasson } = req.params;
 
-    const raceLaps: any = await Lap.findAll({
+    const allLaps: any = await Lap.findAll({
       include: [
         {
           model: Round,
           as: "round",
-          where: {
-            id_type: 8,
-          },
           include: [
             {
               model: Race,
@@ -43,7 +41,7 @@ export const getProfile = async (
 
     const raceLapsMap: Map<number, any[]> = new Map();
 
-    raceLaps.forEach((lap: any) => {
+    allLaps.forEach((lap: any) => {
       const raceId = lap.round?.race?.id;
       if (raceId) {
         if (!raceLapsMap.has(raceId)) {
@@ -56,117 +54,34 @@ export const getProfile = async (
     var totalRaces = 0;
     var totalWins = 0;
     var totalPodiums = 0;
+    var totalPoles = 0;
 
     for (const [raceId, laps] of raceLapsMap.entries()) {
-      const lapsByRider: Map<number, any[]> = new Map();
-      laps.forEach((lap: any) => {
-        const riderId = lap.id_rider;
-        if (!lapsByRider.has(riderId)) {
-          lapsByRider.set(riderId, []);
-        }
-        lapsByRider.get(riderId)!.push(lap);
-      });
+      const sortedLaps = sortLapsByRoundType(laps, 8);
+      if (sortedLaps.length === 0) continue;
 
-      const positions: Map<number, number> = new Map();
+      totalRaces++;
 
-      for (const [riderId, riderLaps] of lapsByRider.entries()) {
-        const totalTime = riderLaps.reduce((sum: number, lap: any) => {
-          return sum + (lap.time || 0);
-        }, 0);
-        positions.set(riderId, totalTime);
-      }
+      const riderId = Number(id_rider);
 
-      const sortedPositions = Array.from(positions.entries()).sort(
-        (a, b) => a[1] - b[1]
+      const position = sortedLaps.findIndex(
+        (entry) => entry.riderId === riderId
       );
 
-      if (lapsByRider.has(Number(id_rider))) {
-        totalRaces++;
-      }
-
-      if (
-        sortedPositions.length > 0 &&
-        sortedPositions[0][0] === Number(id_rider)
-      ) {
+      if (position === 0) {
         totalWins++;
+        totalPodiums++;
+      } else if (position > 0 && position <= 2) {
+        totalPodiums++;
       }
 
-      if (sortedPositions.length > 0) {
-        const position = sortedPositions.findIndex(
-          ([riderId]) => riderId === Number(id_rider)
-        );
-        if (position >= 0 && position < 3) {
-          totalPodiums++;
-        }
-      }
-    }
+      const q2Laps = sortLapsByRoundType(laps, 5);
+      const polePositionId = q2Laps.length > 0 ? q2Laps[0].riderId : null;
 
-    // q2
-    const q2Laps: any = await Lap.findAll({
-      include: [
-        {
-          model: Round,
-          as: "round",
-          where: {
-            id_type: 5,
-          },
-          include: [
-            {
-              model: Race,
-              as: "race",
-              where: { id_seasson: id_seasson },
-            },
-          ],
-        },
-      ],
-    });
-
-    const q2LapsMap: Map<number, any[]> = new Map();
-
-    q2Laps.forEach((lap: any) => {
-      const raceId = lap.round?.race?.id;
-      if (raceId) {
-        if (!q2LapsMap.has(raceId)) {
-          q2LapsMap.set(raceId, []);
-        }
-        q2LapsMap.get(raceId)!.push(lap);
-      }
-    });
-
-    let totalPoles = 0;
-
-    for (const [raceId, laps] of q2LapsMap.entries()) {
-      // Agrupar vueltas por piloto
-      const bestLapByRider: Map<number, number> = new Map();
-
-      laps.forEach((lap: any) => {
-        const riderId = lap.id_rider;
-        const lapTime = lap.time ?? Infinity;
-
-        // Guardar mejor tiempo (mínimo)
-        if (
-          !bestLapByRider.has(riderId) ||
-          lapTime < bestLapByRider.get(riderId)!
-        ) {
-          bestLapByRider.set(riderId, lapTime);
-        }
-      });
-
-      // Ordenar pilotos por mejor vuelta ascendente
-      const sortedPositions = Array.from(bestLapByRider.entries()).sort(
-        (a, b) => a[1] - b[1]
-      );
-
-      // Si el primer puesto es el rider que buscamos, suma una pole
-      if (
-        sortedPositions.length > 0 &&
-        sortedPositions[0][0] === Number(id_rider)
-      ) {
+      if (q2Laps.length > 0 && polePositionId === riderId) {
         totalPoles++;
       }
     }
-
-    // team history
 
     const teamHistory = await TeamHistory.findAll({
       where: {
@@ -265,13 +180,6 @@ export const searchRider = async (
       });
     }
 
-    console.log(
-      "Searching for riders with name:",
-      name,
-      "and dorsal:",
-      realDorsal
-    );
-
     const normalizedName = name
       ?.normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -360,8 +268,6 @@ export const searchRider = async (
           : null,
       };
     });
-
-    console.log("Riders found:", ridersFormatted.length);
 
     return res.status(200).json({
       code: "SUCCESS",

@@ -9,6 +9,11 @@ import Team from "../models/dbModels/team";
 import Category from "../models/dbModels/category";
 import UserToken from "../models/dbModels/userTokens";
 
+interface AuthenticatedRequest extends Request {
+  user?: any;
+  licence?: any;
+}
+
 export const loginUser = async (req: Request, res: Response): Promise<any> => {
   try {
     const { email, password } = req.body;
@@ -122,11 +127,6 @@ export const createUser = async (req: Request, res: Response): Promise<any> => {
     });
   }
 };
-
-interface AuthenticatedRequest extends Request {
-  user?: any;
-  licence?: any;
-}
 
 export const updateUser = async (
   req: AuthenticatedRequest,
