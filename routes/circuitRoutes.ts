@@ -11,7 +11,7 @@ router.get(
   verifyUserLicencePermission,
   getCircuits
 );
-router.post(
+router.get(
   "/circuitDetails/:id_licence/:id_circuit",
   authenticateToken,
   verifyUserLicencePermission,

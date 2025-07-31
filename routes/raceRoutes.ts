@@ -29,7 +29,7 @@ router.get(
   verifyUserLicencePermission,
   getRaces
 );
-router.post(
+router.get(
   "/raceDetails/:id_licence/:id_race",
   authenticateToken,
   verifyUserLicencePermission,

@@ -17,6 +17,8 @@ import NumberHistory from "../models/dbModels/numberHistory";
 import Team from "../models/dbModels/team";
 import TeamHistory from "../models/dbModels/teamHistory";
 import { sortLapsByRoundType } from "../functions/podiumList";
+import LicensedRiders from "../models/dbModels/licensedRiders";
+import License from "../models/dbModels/license";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -115,13 +117,67 @@ export const getRaces = async (req: Request, res: Response): Promise<any> => {
 };
 
 export const getRaceDetails = async (
-  req: Request,
+  req: AuthenticatedRequest,
   res: Response
 ): Promise<any> => {
   try {
     const { id_race } = req.params;
-    const { riders_ids } = req.body;
+    const licence = req.licence;
 
+    const riders = await Rider.findAll({
+      include: [
+        {
+          model: TeamHistory,
+          required: true,
+          where: {
+            id_team: licence.id_team,
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+          include: [
+            {
+              model: Team,
+              required: false,
+            },
+          ],
+        },
+        {
+          model: Flag,
+          required: false,
+        },
+        {
+          model: NumberHistory,
+          required: false,
+          where: {
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+        },
+        {
+          model: LicensedRiders,
+          required: true,
+          where: {
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+          include: [
+            {
+              model: License,
+              required: true,
+              where: {
+                start_date: { [Op.lte]: new Date() },
+                end_date: { [Op.gte]: new Date() },
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const riders_ids = riders.map((rider: any) => rider.id);
     const allLaps: any = await Lap.findAll({
       include: [
         {

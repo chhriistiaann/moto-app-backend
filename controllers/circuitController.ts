@@ -13,6 +13,9 @@ import CircuitNote from "../models/dbModels/circuitNote";
 import { uploadImageToSupabase } from "../services/image_service";
 import User from "../models/dbModels/user";
 import { sortLapsByRoundType } from "../functions/podiumList";
+import NumberHistory from "../models/dbModels/numberHistory";
+import Team from "../models/dbModels/team";
+import TeamHistory from "../models/dbModels/teamHistory";
 
 interface AuthenticatedRequest extends Request {
   user?: any;
@@ -135,7 +138,7 @@ export const getCircuitDetails = async (
 ): Promise<any> => {
   try {
     const { id_circuit } = req.params;
-    const { riders_ids } = req.body;
+    const licence = req.licence;
     // 1. Obtener las 3 últimas temporadas
     const last3Seassons = await Seasson.findAll({
       order: [["end_date", "DESC"]],
@@ -143,6 +146,61 @@ export const getCircuitDetails = async (
     });
 
     const seassonIds = last3Seassons.map((s: any) => s.id);
+
+    const riders = await Rider.findAll({
+      include: [
+        {
+          model: TeamHistory,
+          required: true,
+          where: {
+            id_team: licence.id_team,
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+          include: [
+            {
+              model: Team,
+              required: false,
+            },
+          ],
+        },
+        {
+          model: Flag,
+          required: false,
+        },
+        {
+          model: NumberHistory,
+          required: false,
+          where: {
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+        },
+        {
+          model: LicensedRiders,
+          required: true,
+          where: {
+            end_date: {
+              [Op.or]: [null, { [Op.gt]: new Date() }],
+            },
+          },
+          include: [
+            {
+              model: License,
+              required: true,
+              where: {
+                start_date: { [Op.lte]: new Date() },
+                end_date: { [Op.gte]: new Date() },
+              },
+            },
+          ],
+        },
+      ],
+    });
+
+    const riders_ids = riders.map((rider: any) => rider.id);
 
     // 2. Obtener todas las vueltas de carreras en este circuito, rondas tipo 8, riders dados
     const raceLaps: any[] = await Lap.findAll({
