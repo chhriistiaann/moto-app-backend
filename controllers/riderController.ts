@@ -60,7 +60,6 @@ export const getProfile = async (
       const sortedLaps = sortLapsByRoundType(laps, 8);
       if (sortedLaps.length === 0) continue;
 
-      totalRaces++;
 
       const riderId = Number(id_rider);
 
@@ -73,6 +72,10 @@ export const getProfile = async (
         totalPodiums++;
       } else if (position > 0 && position <= 2) {
         totalPodiums++;
+      }
+
+      if (position >= 0) {
+        totalRaces++;
       }
 
       const q2Laps = sortLapsByRoundType(laps, 5);

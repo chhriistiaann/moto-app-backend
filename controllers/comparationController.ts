@@ -3,6 +3,7 @@ import Lap from "../models/dbModels/lap";
 import Round from "../models/dbModels/round";
 import RoundType from "../models/dbModels/roundType";
 import { sortLapsByRoundType } from "../functions/podiumList";
+import Rider from "../models/dbModels/rider";
 
 // export const getComparation = async (
 //   req: Request,
@@ -319,7 +320,9 @@ export const getComparation = async (
         const sectors4 = riderLaps.map((l) => l.sector4 || 0);
 
         const avg = (arr: number[]) =>
-          arr.length > 0 ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length) : 0;
+          arr.length > 0
+            ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
+            : 0;
         const best = (arr: number[]) => (arr.length > 0 ? Math.min(...arr) : 0);
 
         const idealLap =
