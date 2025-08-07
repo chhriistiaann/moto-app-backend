@@ -69,6 +69,8 @@ export const loginUser = async (req: Request, res: Response): Promise<any> => {
       can_manage_notes: ul.can_manage_notes,
     }));
 
+    console.log("User Licenses:", licensesFormatted);
+
     return res.status(200).json({
       code: "SUCCESS",
       data: {
