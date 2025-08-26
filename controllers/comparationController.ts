@@ -323,7 +323,10 @@ export const getComparation = async (
           arr.length > 0
             ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length)
             : 0;
-        const best = (arr: number[]) => (arr.length > 0 ? Math.min(...arr) : 0);
+        const best = (arr: number[]) => {
+          const filtered = arr.filter((v) => v > 0);
+          return filtered.length > 0 ? Math.min(...filtered) : 0;
+        };
 
         const idealLap =
           best(sectors1) + best(sectors2) + best(sectors3) + best(sectors4);
